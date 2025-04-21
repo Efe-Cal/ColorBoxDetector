@@ -2,6 +2,8 @@ import argparse
 import sys
 import cv2
 import numpy as np
+import os
+import json
 
 
 def select_color_region(image_path):
@@ -190,18 +192,28 @@ def generate_hsv_range(center, offset):
     return ranges
 
 
-color_ranges = {}
-for color in ['red', 'blue', 'yellow', 'green']:
-    file = input(f"Select file for {color} box: ")
-    selected = select_color_region(file)
-    if selected is not None:
-        h, s, v = selected
-        ranges = generate_hsv_range((h, s, v), (10, 40, 40))
-        color_ranges[color] = ranges
-        for lower, upper in ranges:
-            print(f"{color.upper()} HSV Range: Lower {lower}, Upper {upper}")
-    else:
-        print(f"Failed to select region for {color} box.")
+# load or initialize color_ranges
+script_dir = os.path.dirname(__file__)
+ranges_path = os.path.join(script_dir, 'color_ranges.json')
+if os.path.exists(ranges_path):
+    with open(ranges_path, 'r') as f:
+        color_ranges = json.load(f)
+    print(f"Loaded color ranges from {ranges_path}")
+else:
+    color_ranges = {}
+    for color in ['red', 'blue', 'yellow', 'green']:
+        file = input(f"Select file for {color} box: ")
+        selected = select_color_region(file)
+        if selected is not None:
+            h, s, v = selected
+            ranges = generate_hsv_range((h, s, v), (10, 40, 40))
+            color_ranges[color] = ranges
+            for lower, upper in ranges:
+                print(f"{color.upper()} HSV Range: Lower {lower}, Upper {upper}")
+        else:
+            print(f"Failed to select region for {color} box.")
+    with open(ranges_path, 'w') as f:
+        json.dump(color_ranges, f)
 
 
 def detect_boxes(image_path, display=False):
@@ -242,7 +254,6 @@ def detect_boxes(image_path, display=False):
         # Find contours
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for cnt in contours:
-            print(f"Contour: {cnt}")
             area = cv2.contourArea(cnt)
             if area < 500:
                 continue
