@@ -240,27 +240,41 @@ def detect_boxes(image_path, display=False):
             mask = m if mask is None else cv2.bitwise_or(mask, m)
 
         # Clean up noise
-        kernel = np.ones((5, 5), np.uint8)
+        kernel = np.ones((7, 7), np.uint8)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        
+
+        dist_transform = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
+        
+        dist_transform = cv2.distanceTransform(mask,cv2.DIST_L2,5)
+        ret, sure_fg = cv2.threshold(dist_transform,0.4*dist_transform.max(),255,0)
         
         # show the mask for debugging
         if display:
+            cv2.imshow('Distance Transform', dist_transform)
+            cv2.resizeWindow('Distance Transform', 300, 300)
+            cv2.imshow('Sure Background', sure_fg)
+            cv2.resizeWindow('Sure Background', 300, 300)
             cv2.imshow(f'Mask for {color}', mask)
+            cv2.resizeWindow(f'Mask for {color}', 300, 300)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
             
         
         # Find contours
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        sure_fg = sure_fg.astype(np.uint8) 
+        contours, _ = cv2.findContours(sure_fg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if area < 500:
-                continue
+            # if area < 300:
+            #     print(f"Area too small: {area}")
+            #     continue
 
             # filter out boxes where width > 0.67 * height
             x, y, w, h = cv2.boundingRect(cnt)
             if w > 2 * h:
+                print(f"Width too large: {w} > 2 * {h}")
                 continue
 
             M = cv2.moments(cnt)
@@ -273,12 +287,13 @@ def detect_boxes(image_path, display=False):
 
             if display:
                 cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                cv2.putText(img, color, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-                cv2.drawContours(img, [cnt], -1, (255, 0, 0), 3)
+                cv2.putText(img, color, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.drawContours(img, [cnt], -1, (255, 255, 255), 1)
                 
-    # keep only the two biggest boxes by area
+    # keep only the two boxes at highest vertical position and most to the left
     if len(detections) > 2:
-        detections.sort(key=lambda t: t[4], reverse=True)
+        # sort by cy (y coordinate), then by cx (x coordinate)
+        detections.sort(key=lambda t: (t[2], t[1]))
         detections = detections[:2]
 
     # now sort those two by x (left→right)
