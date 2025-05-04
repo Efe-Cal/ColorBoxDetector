@@ -1,10 +1,17 @@
 import argparse
-import sys
 import cv2
 import numpy as np
 import os
 import json
+from InquirerPy import inquirer
+from InquirerPy.validator import PathValidator
 
+MORPHOLOGY_KERNEL_SIZE = (7, 7)  # Kernel size for morphological operations
+DIST_TRESH = 0.4  # Distance threshold for distance transform
+HSV_OFFSET = (10, 40, 40) # Offset for HSV range generation
+
+script_dir = os.path.dirname(__file__)
+color_ranges_path = os.path.join(script_dir, 'color_ranges.json')
 
 def select_color_region(image_path):
     """
@@ -191,32 +198,63 @@ def generate_hsv_range(center, offset):
 
     return ranges
 
-
-# load or initialize color_ranges
-script_dir = os.path.dirname(__file__)
-ranges_path = os.path.join(script_dir, 'color_ranges.json')
-if os.path.exists(ranges_path):
-    with open(ranges_path, 'r') as f:
-        color_ranges = json.load(f)
-    print(f"Loaded color ranges from {ranges_path}")
-else:
-    color_ranges = {}
-    for color in ['red', 'blue', 'yellow', 'green']:
-        file = input(f"Select file for {color} box: ")
+color_codes = {
+    "red":"\033[31m",
+    "blue":"\033[34m",
+    "yellow":"\033[93m",
+    "green":"\033[92m",
+    "reset":"\033[0m"
+}
+def pick_color_ranges():
+    def pick_color(color):
+        print(f"Select file for {color_codes[color]}{color}{color_codes['reset']} box:")
+        file = inquirer.filepath(message="",
+                        validate=PathValidator(is_file=True),
+                        default=os.getcwd(),
+                        only_files=True
+        ).execute()
         selected = select_color_region(file)
         if selected is not None:
             h, s, v = selected
-            ranges = generate_hsv_range((h, s, v), (10, 40, 40))
+            ranges = generate_hsv_range((h, s, v), HSV_OFFSET)
             color_ranges[color] = ranges
             for lower, upper in ranges:
                 print(f"{color.upper()} HSV Range: Lower {lower}, Upper {upper}")
         else:
             print(f"Failed to select region for {color} box.")
-    with open(ranges_path, 'w') as f:
+            if input("Try again? (y/n)").lower()=="y":pick_color(color)
+    color_ranges = {}
+    for color in ['red', 'blue', 'yellow', 'green']:
+        pick_color(color)
+    with open(color_ranges_path, 'w') as f:
         json.dump(color_ranges, f)
+    return color_ranges
+
+# load or initialize color_ranges
+def get_color_ranges():
+    if os.path.exists(color_ranges_path):
+        with open(color_ranges_path, 'r') as f:
+            color_ranges = json.load(f)
+        print(f"Loaded color ranges from {color_ranges_path}")
+    else:
+        color_ranges = pick_color_ranges()
+    return color_ranges
+
+def build_clean_mask(hsv: np.ndarray,
+                     ranges: list[tuple[list[int],tuple[int]]],
+                     kernel_size: tuple[int,int]=MORPHOLOGY_KERNEL_SIZE) -> np.ndarray:
+    """Build and clean mask for a list of HSV ranges."""
+    mask = None
+    for lo, hi in ranges:
+        part = cv2.inRange(hsv, np.array(lo), np.array(hi))
+        mask = part if mask is None else cv2.bitwise_or(mask, part)
+    kernel = np.ones(kernel_size, np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    return mask
 
 
-def detect_boxes(image_path, display=False):
+def detect_boxes(image_path:str, display:bool,color_ranges:dict) -> list[str]:
     """
     Detects red, blue, yellow, and green boxes in the image and returns their order from left to right.
     """
@@ -231,37 +269,23 @@ def detect_boxes(image_path, display=False):
     detections = []
 
     for color, ranges in color_ranges.items():
-        mask = None
-        # Build mask for this color
-        for lower, upper in ranges:
-            lower = np.array(lower)
-            upper = np.array(upper)
-            m = cv2.inRange(hsv, lower, upper)
-            mask = m if mask is None else cv2.bitwise_or(mask, m)
-
-        # Clean up noise
-        kernel = np.ones((7, 7), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        
+        # Create mask for the color
+        mask = build_clean_mask(hsv, ranges, kernel_size=MORPHOLOGY_KERNEL_SIZE)
 
         dist_transform = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
-        
-        dist_transform = cv2.distanceTransform(mask,cv2.DIST_L2,5)
-        ret, sure_fg = cv2.threshold(dist_transform,0.4*dist_transform.max(),255,0)
+        ret, sure_fg = cv2.threshold(dist_transform,DIST_TRESH*dist_transform.max(),255,0)
         
         # show the mask for debugging
         if display:
             cv2.imshow('Distance Transform', dist_transform)
             cv2.resizeWindow('Distance Transform', 300, 300)
-            cv2.imshow('Sure Background', sure_fg)
-            cv2.resizeWindow('Sure Background', 300, 300)
+            cv2.imshow('Sure foreground', sure_fg)
+            cv2.resizeWindow('Sure foreground', 300, 300)
             cv2.imshow(f'Mask for {color}', mask)
             cv2.resizeWindow(f'Mask for {color}', 300, 300)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
-            
-        
+
         # Find contours
         sure_fg = sure_fg.astype(np.uint8) 
         contours, _ = cv2.findContours(sure_fg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -310,11 +334,15 @@ def detect_boxes(image_path, display=False):
 
 def main():
     parser = argparse.ArgumentParser(description='Detect colored boxes and list their order')
-    parser.add_argument('image', help='Path to input image')
+    parser.add_argument('image', nargs='?', help='Path to input image')
     parser.add_argument('--display', action='store_true', help='Display detected boxes on image')
     args = parser.parse_args()
 
-    order = detect_boxes(args.image, args.display)
+    if not args.image:
+        args.image = input("Enter path to input image: ").strip()
+
+    color_ranges = get_color_ranges()
+    order = detect_boxes(args.image, args.display, color_ranges)
     print('Detected color order:', order)
 
 
