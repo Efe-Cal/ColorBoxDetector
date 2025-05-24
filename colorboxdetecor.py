@@ -20,6 +20,8 @@ def get_color_ranges():
         raise Exception(f"Color ranges file not found at {color_ranges_path}. Please generate it first.")
     return color_ranges
 
+color_ranges:dict=get_color_ranges()
+
 def build_clean_mask(hsv: np.ndarray,
                      ranges: list[tuple[list[int],tuple[int]]],
                      kernel_size: tuple[int,int]=MORPHOLOGY_KERNEL_SIZE) -> np.ndarray:
@@ -33,8 +35,7 @@ def build_clean_mask(hsv: np.ndarray,
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
     return mask
 
-
-def detect_boxes(image_path:str, display:bool,color_ranges:dict=get_color_ranges()) -> list[str]:
+def detect_boxes(image_path:str, display:bool) -> list[str]:
     """
     Detects red, blue, yellow, and green boxes in the image and returns their order from left to right.
     """
@@ -131,8 +132,6 @@ def get_crop_data():
     return crop_data
 
 def get_boxes(img_path:str):
-    
-    color_ranges=get_color_ranges()
     crop_data = get_crop_data()
     
     image = cv2.imread(img_path)
@@ -141,9 +140,9 @@ def get_boxes(img_path:str):
     left_box_image = crop_image(image, *crop_data["left_box_crop"])
     right_box_image = crop_image(image, *crop_data["right_box_crop"])
     
-    big_box_order = detect_boxes(big_box_image, False,color_ranges)
-    left_box_order = detect_boxes(left_box_image, False,color_ranges)
-    right_box_order = detect_boxes(right_box_image, False,color_ranges)
+    big_box_order = detect_boxes(big_box_image, False)
+    left_box_order = detect_boxes(left_box_image, False)
+    right_box_order = detect_boxes(right_box_image, False)
     
     result_string = ";".join(big_box_order+left_box_order+right_box_order)
     return result_string
