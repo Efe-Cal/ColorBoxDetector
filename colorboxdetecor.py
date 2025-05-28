@@ -7,20 +7,16 @@ import json
 MORPHOLOGY_KERNEL_SIZE = (7, 7)  # Kernel size for morphological operations
 DIST_TRESH = 0.4  # Distance threshold for distance transform
 
-script_dir = os.path.dirname(__file__)
-color_ranges_path = os.path.join(script_dir, 'color_ranges.json')
-
-# load or initialize color_ranges
-def get_color_ranges():
-    if os.path.exists(color_ranges_path):
-        with open(color_ranges_path, 'r') as f:
-            color_ranges = json.load(f)
-        print(f"Loaded color ranges from {color_ranges_path}")
-    else:
-        raise Exception(f"Color ranges file not found at {color_ranges_path}. Please generate it first.")
-    return color_ranges
-
-color_ranges:dict=get_color_ranges()
+def load_config():
+    script_dir = os.path.dirname(__file__)
+    config_path = os.path.join(script_dir, 'config.json')
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Configuration file not found at {config_path}. Please create it first.")
+    
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    
+    return config
 
 def build_clean_mask(hsv: np.ndarray,
                      ranges: list[tuple[list[int],tuple[int]]],
@@ -119,20 +115,35 @@ def detect_boxes(image_path:str, display:bool) -> list[str]:
 def crop_image(img, x:int, y:int, w:int, h:int) -> np.ndarray:
     return img[y:y+h, x:x+w]
 
-script_dir = os.path.dirname(__file__)
-crop_data_path = os.path.join(script_dir, 'crop_data.json')
 
-def get_crop_data():
-    if os.path.exists(crop_data_path):
-        with open(crop_data_path, 'r') as f:
-            crop_data = json.load(f)
-        print(f"Loaded crop data from {crop_data_path}")
-    else:
-        raise Exception(f"Crop data file not found at {crop_data_path}. Please create it first.")
-    return crop_data
+def process_missing_boxes(left:list,right:list):
+    all_colors={"red", "blue", "yellow", "green"}
+    if len(right)+len(left)==4:
+        pass
+    elif len(right)+len(left)==3:
+        if len(left)==1 and len(right)==2:
+            left.append(list(all_colors - set(left + right)))
+        elif len(left)==2 and len(right)==1:
+            right.append(list(all_colors - set(left + right)))
+    elif len(right)+len(left)==2:
+        if len(left)==1 and len(right)==1:
+            missing_colors = list(all_colors - set(left + right))
+            right.append(missing_colors[0])
+            left.append(missing_colors[1])
+    elif len(right)+len(left)==1:
+        missing_colors = list(all_colors - set(left + right))
+        if len(left)==1:
+            left.append(missing_colors[0])
+            right.append(missing_colors[1:2])
+        elif len(right)==1:
+            right.append(missing_colors[0])
+            left.append(missing_colors[1:2])
 
-def get_boxes(img_path:str):
-    crop_data = get_crop_data()
+def get_boxes(img_path:str,display:bool=False) -> str:
+    config = load_config()
+    global color_ranges
+    color_ranges = config["color_ranges"]
+    crop_data = config["crop_data"]
     
     image = cv2.imread(img_path)
     
@@ -140,9 +151,11 @@ def get_boxes(img_path:str):
     left_box_image = crop_image(image, *crop_data["left_box_crop"])
     right_box_image = crop_image(image, *crop_data["right_box_crop"])
     
-    big_box_order = detect_boxes(big_box_image, False)
-    left_box_order = detect_boxes(left_box_image, False)
-    right_box_order = detect_boxes(right_box_image, False)
+    big_box_order = detect_boxes(big_box_image, display)
+    if len(big_box_image)==0:
+        big_box_order=["blue"]
+    left_box_order = detect_boxes(left_box_image, display)
+    right_box_order = detect_boxes(right_box_image, display)
     
     result_string = ";".join(big_box_order+left_box_order+right_box_order)
     return result_string
