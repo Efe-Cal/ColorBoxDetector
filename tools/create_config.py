@@ -4,10 +4,12 @@ from select_mid_point import select_vertical_point
 from selectROI import select_roi_from_image
 from colorbox_color_generator import generate_color_ranges
 
-image_prime = input("Enter the path to the image file: ").strip()
-if not image_prime:
+first_image = input("Enter the path to the image file 1: ").strip()
+second_image = input("Enter the path to the image file 2: ").strip()
+if not first_image:
     raise ValueError("Image path cannot be empty.")
-image_prime = cv2.imread(image_prime)
+first_image = cv2.imread(first_image)
+second_image = cv2.imread(second_image)
 
 def crop_image(image, x, y, w, h):
     return image[y:y+h, x:x+w]
@@ -16,15 +18,17 @@ def crop_image(image, x, y, w, h):
 config_file = 'config.json'
 
 # Select areas
-big_box_crop = select_roi_from_image(image_prime, "Select the big box area")
-left_box_crop = select_roi_from_image(image_prime, "Select the left box area")
-right_box_crop = select_roi_from_image(image_prime, "Select the right box area")
-print(left_box_crop)
+big_box_crop = select_roi_from_image(first_image, "Select the big box area")
+left_box_crop = select_roi_from_image(second_image, "Select the left box area")
+right_box_crop = select_roi_from_image(first_image, "Select the right box area")
 
 # Gennerate images of regions
-left_box_image = crop_image(image_prime, *left_box_crop)
-right_box_image = crop_image(image_prime, *right_box_crop)
-print(left_box_image.shape, right_box_image.shape)
+left_box_image = crop_image(second_image, *left_box_crop)
+right_box_image = crop_image(first_image, *right_box_crop)
+
+print("Shapes",left_box_image.shape, right_box_image.shape)
+
+
 cv2.imshow("Left Box Image", left_box_image)
 cv2.imshow("Right Box Image", right_box_image)
 cv2.waitKey(0)

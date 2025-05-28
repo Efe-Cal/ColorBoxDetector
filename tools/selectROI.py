@@ -19,7 +19,7 @@ def select_roi_from_image(image,title="Select ROI"):
     x, y, w, h = [int(coord / scale) for coord in roi]
     if x==0 and y==0 and w==0 and h==0:
         select_roi_from_image(image, title)  # Retry if no ROI was selected
-    print(f"{x}, {y}, {w}, {h}")
+    print(f"Selected ROI: {x}, {y}, {w}, {h}")
     # Optionally, extract and show the selected ROI from the original image
     if w > 0 and h > 0:
         selected_region = image[y:y+h, x:x+w]
