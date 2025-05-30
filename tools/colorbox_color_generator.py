@@ -6,7 +6,7 @@ script_dir = os.path.dirname(__file__)
 color_ranges_path = os.path.join(script_dir, 'color_ranges.json')
 HSV_OFFSET = (15, 55, 55) # Offset for HSV range generation
 
-def select_color_region_hsv_average(image, title="Select Color Region"):
+def select_color_region_hsv_average(img, title="Select Color Region"):
     """
     Opens an image and allows the user to select a rectangular region.
     Returns the average HSV value of the selected area.
@@ -25,11 +25,10 @@ def select_color_region_hsv_average(image, title="Select Color Region"):
     """
     # Use select_roi_from_image to get ROI coordinates
     # Save image temporarily if needed, but here we assume select_roi_from_image can take an image array
-    if image is None:
+    if img is None:
         print(f"Error: Image is None")
         return None
-    
-        
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB for display
     # Create window and set mouse callback
     window_name = "Select Color Region"
     cv2.namedWindow(window_name)
@@ -39,7 +38,7 @@ def select_color_region_hsv_average(image, title="Select Color Region"):
     rect_end = None
     dragging = False
     selection_complete = False
-    img = image.copy()
+    
     # Clone image for drawing
     img_copy = img.copy()
     
@@ -72,7 +71,7 @@ def select_color_region_hsv_average(image, title="Select Color Region"):
     
     # Main loop
     while True:
-        cv2.imshow(window_name, img_copy)
+        cv2.imshow(window_name, cv2.cvtColor(img_copy, cv2.COLOR_RGB2BGR))
         key = cv2.waitKey(1) & 0xFF
         
         # Confirm selection
@@ -103,10 +102,21 @@ def select_color_region_hsv_average(image, title="Select Color Region"):
         region = img[y1:y2, x1:x2]
         
         # Convert to HSV
-        hsv_region = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
-        
-        # Calculate average HSV values
-        h_avg = int(np.mean(hsv_region[:, :, 0]))
+        hsv_region = cv2.cvtColor(region, cv2.COLOR_RGB2HSV)
+
+        # Compute circular mean for H to handle wrap‐around at 0/180
+        h_vals = hsv_region[:, :, 0].astype(np.float32)
+        # OpenCV H: 0–179 maps to 0–360°
+        angles = np.deg2rad(h_vals * 2.0)
+        mean_x = np.mean(np.cos(angles))
+        mean_y = np.mean(np.sin(angles))
+        mean_angle = np.arctan2(mean_y, mean_x)
+        if mean_angle < 0:
+            mean_angle += 2 * np.pi
+        # back to OpenCV H range
+        h_avg = int(np.round(np.rad2deg(mean_angle) / 2.0)) % 180
+
+        # S and V are linear
         s_avg = int(np.mean(hsv_region[:, :, 1]))
         v_avg = int(np.mean(hsv_region[:, :, 2]))
         
@@ -123,11 +133,9 @@ def select_color_region_hsv_average(image, title="Select Color Region"):
         cv2.imshow("Average Color", display_img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-        
         return (h_avg, s_avg, v_avg)
     
     return None
-
 
 def generate_hsv_range(center, offset):
     """
@@ -251,4 +259,7 @@ def generate_color_ranges(left_box_image, right_box_image):
     }
     
 if __name__ == "__main__":
-    generate_color_ranges(np.zeros((200, 200, 3), dtype=np.uint8),np.zeros((400, 200, 3), dtype=np.uint8))
+    # generate_color_ranges(np.zeros((200, 200, 3), dtype=np.uint8),np.zeros((400, 200, 3), dtype=np.uint8))
+    image = cv2.imread('image.jpg')  # Replace with your image path
+    # select_color_region_old("image.jpg")  # You can also use the new function if you want to test it
+    select_color_region_hsv_average(image)

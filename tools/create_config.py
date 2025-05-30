@@ -4,12 +4,12 @@ from select_mid_point import select_vertical_point
 from selectROI import select_roi_from_image
 from colorbox_color_generator import generate_color_ranges
 
-first_image = input("Enter the path to the image file 1: ").strip()
-second_image = input("Enter the path to the image file 2: ").strip()
-if not first_image:
+first_image_path = input("Enter the path to the image file 1: ").strip()
+second_image_path = input("Enter the path to the image file 2: ").strip()
+if not first_image_path or not second_image_path:
     raise ValueError("Image path cannot be empty.")
-first_image = cv2.imread(first_image)
-second_image = cv2.imread(second_image)
+first_image = cv2.imread(first_image_path)
+second_image = cv2.imread(second_image_path)
 
 def crop_image(image, x, y, w, h):
     return image[y:y+h, x:x+w]
@@ -26,8 +26,7 @@ right_box_crop = select_roi_from_image(first_image, "Select the right box area")
 left_box_image = crop_image(second_image, *left_box_crop)
 right_box_image = crop_image(first_image, *right_box_crop)
 
-print("Shapes",left_box_image.shape, right_box_image.shape)
-
+# print("Shapes",left_box_image.shape, right_box_image.shape)
 
 cv2.imshow("Left Box Image", left_box_image)
 cv2.imshow("Right Box Image", right_box_image)

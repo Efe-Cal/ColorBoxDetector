@@ -56,7 +56,7 @@ def detect_boxes(img, mid_point,color_ranges, display:bool):
     """
     # Convert to HSV color space
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
+    
     detections = []
     order = Order(left="", right="")
     for color, ranges in color_ranges.items():
@@ -145,16 +145,26 @@ def process_missing_boxes(left:list,right:list):
             right.append(missing_colors[0])
             left.append(missing_colors[1:2])
 
-def get_boxes(img_path:str,display:bool=False) -> str:
+def stringify_order(order) -> str:
+    print(order)
+    return order[0][0]["left"] + "," + order[0][0]["right"] + ";" + order[1][0]["left"] + "," + order[1][0]["right"]  
+
+def get_box_order(img1_path:str,image2_path:str,display:bool=False) -> str:
     config = load_config()
     color_ranges = config["color_ranges"]
     
-    image = cv2.imread(img_path)
+    image1 = cv2.imread(img1_path)
+    image2 = cv2.imread(image2_path)
     
-    big_box_image = crop_image(image, *config["big_box_crop"])
-    left_box_image = crop_image(image, *config["left_box_crop"])
-    right_box_image = crop_image(image, *config["right_box_crop"])
-
+    big_box_image = crop_image(image1, *config["big_box_crop"])
+    left_box_image = crop_image(image2, *config["left_box_crop"])
+    right_box_image = crop_image(image1, *config["right_box_crop"])
+    if display:
+        cv2.imshow("Big Box Image", big_box_image)
+        cv2.imshow("Left Box Image", left_box_image)
+        cv2.imshow("Right Box Image", right_box_image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
     # big_box_order = detect_boxes(big_box_image, display)
     # if len(big_box_image)==0:
     #     big_box_order=["blue"]
@@ -199,16 +209,32 @@ def get_boxes(img_path:str,display:bool=False) -> str:
     print("Right box order:", right_box_order)
     return left_box_order, right_box_order
 
+def get_boxes(img1_path:str,img2_path:str, display:bool=False) -> str:
+    """
+    Main function to get the order of colored boxes from an image.
+    """
+    # if not os.path.exists(img1_path):
+    #     raise FileNotFoundError(f"Image file not found at {image_path}. Please provide a valid path.")
+    
+    left_box_order, right_box_order = get_box_order(img1_path,img2_path, display)
+    
+    # process_missing_boxes(left_box_order[1], right_box_order[1])
+    
+    order = stringify_order([left_box_order, right_box_order])
+    
+    if display:
+        print("Final order:", order)
+    
+    return order
+
 def main():
     parser = argparse.ArgumentParser(description='Detect colored boxes and list their order')
-    parser.add_argument('image', nargs='?', help='Path to input image')
+    parser.add_argument('image1', help='Path to the first input image')
+    parser.add_argument('image2', help='Path to the second input image')
     parser.add_argument('--display', action='store_true', help='Display detected boxes on image')
     args = parser.parse_args()
 
-    # if not args.image:
-    #     args.image = input("Enter path to input image: ").strip()
-
-    order = get_boxes(args.image,args.display)
+    order = get_boxes(args.image1, args.image2, args.display)
     # TODO:
     # order = process_missing_boxes()
     # order = stringify_order(order)
