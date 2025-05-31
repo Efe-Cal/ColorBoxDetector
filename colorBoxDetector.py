@@ -84,9 +84,10 @@ def detect_boxes(img, mid_point,color_ranges, display:bool):
         sure_fg = sure_fg.astype(np.uint8) 
         contours, _ = cv2.findContours(dist_transform.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         # for cnt in contours:
-        contour_areas = [cv2.contourArea(cnt) for cnt in contours if cv2.contourArea(cnt) > 70]
+        contour_areas = [cv2.contourArea(cnt) for cnt in contours if cv2.contourArea(cnt) > 50]
 
         area = sum(contour_areas)
+        print(area)
         if area < 500:
             if not area == 0:
                 print(f"Area too small: {area}   {color}")
@@ -122,28 +123,63 @@ def crop_image(img, x:int, y:int, w:int, h:int) -> np.ndarray:
     return img[y:y+h, x:x+w]
 
 
-def process_missing_boxes(left:list,right:list):
-    all_colors={"red", "blue", "yellow", "green"}
-    if len(right)+len(left)==4:
-        pass
-    elif len(right)+len(left)==3:
-        if len(left)==1 and len(right)==2:
-            left.append(list(all_colors - set(left + right)))
-        elif len(left)==2 and len(right)==1:
-            right.append(list(all_colors - set(left + right)))
-    elif len(right)+len(left)==2:
-        if len(left)==1 and len(right)==1:
-            missing_colors = list(all_colors - set(left + right))
-            right.append(missing_colors[0])
-            left.append(missing_colors[1])
-    elif len(right)+len(left)==1:
-        missing_colors = list(all_colors - set(left + right))
-        if len(left)==1:
-            left.append(missing_colors[0])
-            right.append(missing_colors[1:2])
-        elif len(right)==1:
-            right.append(missing_colors[0])
-            left.append(missing_colors[1:2])
+def process_missing_boxes(left, right):
+    all_colors = {"red", "blue", "yellow", "green"}
+    # one missing box
+    if len(left[1]) + len(right[1]) == 3:
+        if len(left[1]) == 1 and len(right[1]) == 2:
+            missing_color = list(all_colors - set(left[1] + right[1]))[0]
+            if left[0]["left"] == "":
+                left[0]["left"] = missing_color
+            else:
+                left[0]["right"] = missing_color
+        elif len(left[1]) == 2 and len(right[1]) == 1:
+            missing_color = list(all_colors - set(left[1] + right[1]))[0]
+            if right[0]["left"] == "":
+                right[0]["left"] = missing_color
+            else:
+                right[0]["right"] = missing_color
+    # two missing boxes
+    elif len(left[1]) + len(right[1]) == 2:
+        missing_colors = list(all_colors - set(left[1] + right[1]))
+        if len(left[1]) == 1 and len(right[1]) == 1:
+            if left[0]["left"] == "":
+                left[0]["left"] = missing_colors[0]
+            else:
+                left[0]["right"] = missing_colors[0]
+            if right[0]["left"] == "":
+                right[0]["left"] = missing_colors[1]
+            else:
+                right[0]["right"] = missing_colors[1]
+        elif len(left[1]) == 2 and len(right[1]) == 0:
+            right[0]["right"] = missing_colors[0]
+            right[0]["left"] = missing_colors[1]
+        elif len(left[1]) == 0 and len(right[1]) == 2:
+            left[0]["right"] = missing_colors[0]
+            left[0]["left"] = missing_colors[1]
+    # three missing boxes
+    elif len(left[1]) + len(right[1]) == 1:
+        missing_colors = list(all_colors - set(left[1] + right[1]))
+        if len(left[1]) == 1:
+            if left[0]["left"] == "":
+                left[0]["left"] = missing_colors[0]
+            else:
+                left[0]["right"] = missing_colors[0]
+            right[0]["left"] = missing_colors[1]
+            right[0]["right"] = missing_colors[2]
+        elif len(right[1]) == 1:
+            if right[0]["left"] == "":
+                right[0]["left"] = missing_colors[0]
+            else:
+                right[0]["right"] = missing_colors[0]
+            left[0]["left"] = missing_colors[1]
+            left[0]["right"] = missing_colors[2]
+    # four missing boxes make it all random
+    left[0]["left"] = "yellow"
+    left[0]["right"] = "blue"
+    right[0]["left"] = "red"
+    right[0]["right"] = "green"
+    
 
 def stringify_order(order) -> str:
     print(order)
@@ -156,11 +192,11 @@ def get_box_order(img1_path:str,image2_path:str,display:bool=False) -> str:
     image1 = cv2.imread(img1_path)
     image2 = cv2.imread(image2_path)
     
-    big_box_image = crop_image(image1, *config["big_box_crop"])
+    # big_box_image = crop_image(image1, *config["big_box_crop"])
     left_box_image = crop_image(image2, *config["left_box_crop"])
     right_box_image = crop_image(image1, *config["right_box_crop"])
     if display:
-        cv2.imshow("Big Box Image", big_box_image)
+        # cv2.imshow("Big Box Image", big_box_image)
         cv2.imshow("Left Box Image", left_box_image)
         cv2.imshow("Right Box Image", right_box_image)
         cv2.waitKey(0)
@@ -218,7 +254,7 @@ def get_boxes(img1_path:str,img2_path:str, display:bool=False) -> str:
     
     left_box_order, right_box_order = get_box_order(img1_path,img2_path, display)
     
-    # process_missing_boxes(left_box_order[1], right_box_order[1])
+    process_missing_boxes(left_box_order, right_box_order)
     
     order = stringify_order([left_box_order, right_box_order])
     
