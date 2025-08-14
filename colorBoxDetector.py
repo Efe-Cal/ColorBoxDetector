@@ -69,13 +69,13 @@ def detect_boxes(img, mid_point,color_ranges, display:bool):
         # show the mask for debugging
         if display:
             cv2.imshow('Distance Transform', dist_transform)
-            cv2.resizeWindow('Distance Transform', 300, 300)
+            # cv2.resizeWindow('Distance Transform', 300, 300)
             cv2.moveWindow('Distance Transform', 40, 40)
             cv2.imshow('Sure foreground', sure_fg)
-            cv2.resizeWindow('Sure foreground', 300, 300)
+            # cv2.resizeWindow('Sure foreground', 300, 300)
             cv2.moveWindow('Sure foreground', 300, 300)
             cv2.imshow(f'Mask for {color}', mask)
-            cv2.resizeWindow(f'Mask for {color}', 300, 300)
+            # cv2.resizeWindow(f'Mask for {color}', 300, 300)
             cv2.moveWindow(f'Mask for {color}', 500, 500)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
@@ -269,12 +269,11 @@ def main():
     parser.add_argument('image2', help='Path to the second input image')
     parser.add_argument('--display', action='store_true', help='Display detected boxes on image')
     args = parser.parse_args()
+    color_ranges = {'red': [([0, 173, 45], [12, 255, 155]), ([162, 173, 45], [179, 255, 155])], 'blue': [([92, 175, 7], [122, 255, 117])], 'yellow': [([0, 154, 81], [28, 255, 191]), ([178, 154, 81], [179, 255, 191])], 'green': [([53, 118, 0], [83, 228, 108])]}
+    detect_boxes(cv2.imread(args.image1),600,color_ranges,display=args.display)
 
-    order = get_boxes(args.image1, args.image2, args.display)
-    # TODO:
-    # order = process_missing_boxes()
-    # order = stringify_order(order)
-    print('Detected color order:', order)
+    # order = get_boxes(args.image1, args.image2, args.display)
+    # print('Detected color order:', order)
 
 
 if __name__ == '__main__':

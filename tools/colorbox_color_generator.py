@@ -260,6 +260,7 @@ def generate_color_ranges(left_box_image, right_box_image):
     
 if __name__ == "__main__":
     # generate_color_ranges(np.zeros((200, 200, 3), dtype=np.uint8),np.zeros((400, 200, 3), dtype=np.uint8))
-    image = cv2.imread('image.jpg')  # Replace with your image path
+    image = cv2.imread(input("Enter img path: "))  # Replace with your image path
     # select_color_region_old("image.jpg")  # You can also use the new function if you want to test it
-    select_color_region_hsv_average(image)
+    x= generate_color_ranges(image, image)
+    print(x)
