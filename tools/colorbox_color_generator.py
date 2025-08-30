@@ -28,6 +28,10 @@ def select_color_region_hsv_average(img, title="Select Color Region"):
     if img is None:
         print(f"Error: Image is None")
         return None
+    
+    print(f"Image shape: {img.shape}, dtype: {img.dtype}")
+    print("Instructions: Drag to select a region, press 'c' to confirm, 'r' to reset, 'q' to quit")
+    
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB for display
     # Create window and set mouse callback
     window_name = "Select Color Region"
@@ -91,6 +95,12 @@ def select_color_region_hsv_average(img, title="Select Color Region"):
             return None
     
     cv2.destroyAllWindows()
+    print(f"Selected region from {rect_start} to {rect_end}")
+    
+    # Check if we have valid coordinates
+    if rect_start is None or rect_end is None:
+        print("Error: No valid selection made. rect_start or rect_end is None")
+        return None
     
     # If we have a valid selection
     if rect_start and rect_end:
@@ -98,8 +108,20 @@ def select_color_region_hsv_average(img, title="Select Color Region"):
         x1, y1 = min(rect_start[0], rect_end[0]), min(rect_start[1], rect_end[1])
         x2, y2 = max(rect_start[0], rect_end[0]), max(rect_start[1], rect_end[1])
         
+        print(f"Selection coordinates: x1={x1}, y1={y1}, x2={x2}, y2={y2}")
+        
+        # Check if the selection has valid dimensions
+        if x2 <= x1 or y2 <= y1:
+            print("Error: Invalid selection dimensions")
+            return None
+        
         # Extract the region
         region = img[y1:y2, x1:x2]
+        print(f"Region shape: {region.shape}")
+        
+        if region.size == 0:
+            print("Error: Selected region is empty")
+            return None
         
         # Convert to HSV
         hsv_region = cv2.cvtColor(region, cv2.COLOR_RGB2HSV)
@@ -133,8 +155,10 @@ def select_color_region_hsv_average(img, title="Select Color Region"):
         cv2.imshow("Average Color", display_img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+        print(f"Returning HSV values: ({h_avg}, {s_avg}, {v_avg})")
         return (h_avg, s_avg, v_avg)
     
+    print("Error: No valid selection was made")
     return None
 
 def generate_hsv_range(center, offset):
@@ -207,60 +231,35 @@ color_codes = {
     "green":"\033[92m",
     "reset":"\033[0m"
 }
-# def pick_color_ranges():
-#     def pick_color(color):
-#         print(f"Select file for {color_codes[color]}{color}{color_codes['reset']} box:")
-#         file = inquirer.filepath(message="",
-#                         validate=PathValidator(is_file=True),
-#                         default=os.getcwd(),
-#                         only_files=True
-#         ).execute()
-#         img = cv2.imread(file)
-#         selected = select_color_region(img)
-#         if selected is not None:
-#             h, s, v = selected
-#             ranges = generate_hsv_range((h, s, v), HSV_OFFSET)
-#             color_ranges[color] = ranges
-#             for lower, upper in ranges:
-#                 print(f"{color.upper()} HSV Range: Lower {lower}, Upper {upper}")
-#         else:
-#             print(f"Failed to select region for {color} box.")
-#             if input("Try again? (y/n)").lower()=="y":pick_color(color)
-#     color_ranges = {}
-#     for color in ['red', 'blue', 'yellow', 'green']:
-#         pick_color(color)
-#     with open(color_ranges_path, 'w') as f:
-#         json.dump(color_ranges, f)
-#     return color_ranges
 
-def generate_color_ranges(left_box_image, right_box_image):
-    red_loc = input(f"Select the location of the {color_codes['red']}red{color_codes['reset']} box (left/right): ").strip().lower()
-    red = select_color_region_hsv_average(left_box_image if red_loc == 'l' else right_box_image, "the red box area")
-    red_range = generate_hsv_range(red, HSV_OFFSET)
+def generate_color_ranges(img):
+    color = select_color_region_hsv_average(img)
+    print(f"Color selection result: {color}")
     
-    blue_loc = input(f"Select the location of the {color_codes['blue']}blue{color_codes['reset']} box (left/right): ").strip().lower()
-    blue = select_color_region_hsv_average(left_box_image if blue_loc == 'l' else right_box_image, "the blue box area")
-    blue_range = generate_hsv_range(blue, HSV_OFFSET)
+    if color is None:
+        print("Error: Color selection failed. Cannot generate color ranges.")
+        return None
     
-    green_loc = input(f"Select the location of the {color_codes['green']}green{color_codes['reset']} box (left/right): ").strip().lower()
-    green = select_color_region_hsv_average(left_box_image if green_loc == 'l' else right_box_image, "the green box area")
-    green_range = generate_hsv_range(green, HSV_OFFSET)
+    color_range = generate_hsv_range(color, HSV_OFFSET)
     
-    yellow_loc = input(f"Select the location of the {color_codes['yellow']}yellow{color_codes['reset']} box (left/right): ").strip().lower()
-    yellow = select_color_region_hsv_average(left_box_image if yellow_loc == 'l' else right_box_image, "the yellow box area")
-    yellow_range = generate_hsv_range(yellow, HSV_OFFSET)
+    # blue_loc = input(f"Select the location of the {color_codes['blue']}blue{color_codes['reset']} box (left/right): ").strip().lower()
+    # blue = select_color_region_hsv_average(left_box_image if blue_loc == 'l' else right_box_image, "the blue box area")
+    # blue_range = generate_hsv_range(blue, HSV_OFFSET)
     
-    print(red, blue, yellow, green)
-    return {
-        "red": red_range,
-        "blue": blue_range,
-        "yellow": yellow_range,
-        "green": green_range
-    }
+    # green_loc = input(f"Select the location of the {color_codes['green']}green{color_codes['reset']} box (left/right): ").strip().lower()
+    # green = select_color_region_hsv_average(left_box_image if green_loc == 'l' else right_box_image, "the green box area")
+    # green_range = generate_hsv_range(green, HSV_OFFSET)
+    
+    # yellow_loc = input(f"Select the location of the {color_codes['yellow']}yellow{color_codes['reset']} box (left/right): ").strip().lower()
+    # yellow = select_color_region_hsv_average(left_box_image if yellow_loc == 'l' else right_box_image, "the yellow box area")
+    # yellow_range = generate_hsv_range(yellow, HSV_OFFSET)
+    
+    print(color_range)
+    return color_range
     
 if __name__ == "__main__":
     # generate_color_ranges(np.zeros((200, 200, 3), dtype=np.uint8),np.zeros((400, 200, 3), dtype=np.uint8))
     image = cv2.imread(input("Enter img path: "))  # Replace with your image path
     # select_color_region_old("image.jpg")  # You can also use the new function if you want to test it
-    x= generate_color_ranges(image, image)
+    x= generate_color_ranges(image)
     print(x)
