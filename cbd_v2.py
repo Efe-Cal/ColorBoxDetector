@@ -29,7 +29,7 @@ def isolate_and_subtract_channel(img, channel='r'):
 # Example usage:
 channels = ['r', 'g', 'b']
 channel_names = {'r': 'Red', 'g': 'Green', 'b': 'Blue'}
-img_path = 'newpics/new1.jpeg'
+img_path = r'C:\Users\efeca\Desktop\new_image.png'
 
 contour_pos={}
 for ch in channels:
@@ -194,16 +194,17 @@ top_right = max(top_points, key=lambda item: item[1][0])
 bottom_left = min(bottom_points, key=lambda item: item[1][0])
 bottom_right = max(bottom_points, key=lambda item: item[1][0])
 
-corner_names = {
-    top_left[0]: "top left",
-    top_right[0]: "top right",
-    bottom_left[0]: "bottom left",
-    bottom_right[0]: "bottom right"
-}
+# corner_names = {
+#     top_left[0]: "top left",
+#     top_right[0]: "top right",
+#     bottom_left[0]: "bottom left",
+#     bottom_right[0]: "bottom right"
+# }
 
-for name, pt in points.items():
-    print(f"{name} is {corner_names[name]} corner: {pt}")
+# for name, pt in points.items():
+#     print(f"{name} is {corner_names[name]} corner: {pt}")
 
-
+r = ",".join([c[0].lower() for c in [top_left, top_right, bottom_right, bottom_left]])
+print(r)
 cv2.waitKey(0)
 cv2.destroyAllWindows()

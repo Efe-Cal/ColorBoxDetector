@@ -4,7 +4,7 @@ import os
 
 script_dir = os.path.dirname(__file__)
 color_ranges_path = os.path.join(script_dir, 'color_ranges.json')
-HSV_OFFSET = (15, 55, 55) # Offset for HSV range generation
+HSV_OFFSET = (10, 55, 55) # Offset for HSV range generation
 
 def select_color_region_hsv_average(img, title="Select Color Region"):
     """
@@ -34,7 +34,7 @@ def select_color_region_hsv_average(img, title="Select Color Region"):
     
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB for display
     # Create window and set mouse callback
-    window_name = "Select Color Region"
+    window_name = title
     cv2.namedWindow(window_name)
     
     # Variables to store rectangle coordinates
@@ -232,8 +232,8 @@ color_codes = {
     "reset":"\033[0m"
 }
 
-def generate_color_ranges(img):
-    color = select_color_region_hsv_average(img)
+def generate_color_ranges(img,title="Select Color Region"):
+    color = select_color_region_hsv_average(img,title=title)
     print(f"Color selection result: {color}")
     
     if color is None:

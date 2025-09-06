@@ -1,6 +1,5 @@
 import glob
 import subprocess
-import sys
 import cv2
 import numpy as np
 
@@ -34,71 +33,130 @@ channels = ['r', 'g', 'b']
 channel_names = {'r': 'Red', 'g': 'Green', 'b': 'Blue'}
 img_path = './image.png'
 
-def crop_image(img,x1,y1,x2,y2):
-    cropped_img = img[y1:y2, x1:x2]
+def crop_image(img, x, y, w, h):
+    cropped_img = img[y:y+h, x:x+w]
     return cropped_img
-def find_yellow_contours(img):
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    # Define yellow color range in HSV
-    lower_yellow = np.array([10, 100, 100])
-    upper_yellow = np.array([40, 255, 255])
-    mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
-    # Morphological operations to clean mask
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    # Filter contours based on area and aspect ratio
-    contours = [cnt for cnt in contours if cv2.contourArea(cnt) > 600]
-    ratio = 1.5
-    contours = [cnt for cnt in contours if cv2.boundingRect(cnt)[2] / cv2.boundingRect(cnt)[3] < ratio]
+
+def merge_close_contours(contours, d_thresh=20):
+    """
+    Merge contours whose minimum point-to-point distance <= d_thresh (pixels).
+    Returns a list of merged contours (convex hulls).
+    """
     if not contours:
-        return [], mask
-        
-    return contours, mask
+        return []
+
+    n = len(contours)
+    rects = [cv2.boundingRect(c) for c in contours]  # (x,y,w,h)
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    def union(a, b):
+        pa, pb = find(a), find(b)
+        if pa != pb:
+            parent[pb] = pa
+
+    def bbox_dist(r1, r2):
+        x1,y1,w1,h1 = r1
+        x2,y2,w2,h2 = r2
+        x_gap = max(0, max(x1, x2) - min(x1 + w1, x2 + w2))
+        y_gap = max(0, max(y1, y2) - min(y1 + h1, y2 + h2))
+        return (x_gap**2 + y_gap**2)**0.5
+
+    def contour_min_dist(c1, c2):
+        p1 = c1.reshape(-1, 2).astype(np.float32)
+        p2 = c2.reshape(-1, 2).astype(np.float32)
+        # vectorized pairwise distances
+        d = np.sqrt(((p1[:, None, :] - p2[None, :, :]) ** 2).sum(axis=2))
+        return float(d.min())
+
+    # build connectivity (fast bbox filter, then exact distance)
+    for i in range(n):
+        for j in range(i + 1, n):
+            if bbox_dist(rects[i], rects[j]) > d_thresh:
+                continue
+            if contour_min_dist(contours[i], contours[j]) <= d_thresh:
+                union(i, j)
+
+    # group and merge
+    groups = {}
+    for i in range(n):
+        root = find(i)
+        groups.setdefault(root, []).append(i)
+
+    merged = []
+    for idxs in groups.values():
+        pts = np.vstack([contours[k].reshape(-1, 2) for k in idxs])
+        hull = cv2.convexHull(pts.astype(np.int32))
+        merged.append(hull)
+
+    return merged
+
+def is_contour_closer_to_red_or_yellow(img, contour):
+
+    # Create a mask for the contour
+    mask = np.zeros(img.shape[:2], np.uint8)
+    cv2.fillPoly(mask, [contour], 255)
+    
+    # Convert image to HSV
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    
+    # Calculate the mean HSV values within the contour
+    mean_hsv = cv2.mean(hsv, mask=mask)
+    mean_h, mean_s, mean_v = mean_hsv[:3]
+
+    red_ranges = [
+        (0, 10),    # Lower red range
+        (170, 180)  # Upper red range
+    ]
+    yellow_range = (20, 30)
+    
+    # Calculate distance to red (considering wraparound)
+    red_distance = float('inf')
+    for red_min, red_max in red_ranges:
+        if red_min <= mean_h <= red_max:
+            red_distance = 0  # Direct hit
+            break
+        else:
+            # Calculate minimum distance to this range
+            dist_to_range = min(abs(mean_h - red_min), abs(mean_h - red_max))
+            red_distance = min(red_distance, dist_to_range)
+    
+    # Handle hue wraparound for red (0-180 scale)
+    if mean_h > 90:  # If hue is in upper half, also check distance to 0
+        wraparound_distance = min(abs(mean_h - 180), abs(mean_h - 0))
+        if wraparound_distance < 10:  # Within red range considering wraparound
+            red_distance = min(red_distance, wraparound_distance)
+    
+    # Calculate distance to yellow
+    yellow_min, yellow_max = yellow_range
+    if yellow_min <= mean_h <= yellow_max:
+        yellow_distance = 0
+    else:
+        yellow_distance = min(abs(mean_h - yellow_min), abs(mean_h - yellow_max))
+    
+    # Return the closer color
+    if red_distance <= yellow_distance:
+        return 'r'
+    else:
+        return 'y'
 
 def detect_and_extract_contours(img_path):
-    contour_pos={}
+    img = cv2.imread(img_path)
+    img = crop_image(img, 1735, 657, 172, 122)
+    cv2.imshow('Cropped Image', img)
+
     for ch in channels:
-        img = cv2.imread(img_path)
-
-        img = crop_image(img,1480,700,1676,835)
-        # cv2.imshow('Cropped Image', img)
-
-        # Resize while keeping aspect ratio
-        h, w = img.shape[:2]
-        max_w, max_h = 600, 600
-        scale = min(max_w / w, max_h / h)
-        new_w, new_h = int(w * scale), int(h * scale)
-        result = cv2.resize(img, (new_w, new_h))
-        
-        result = isolate_and_subtract_channel(result, ch)
+        result = isolate_and_subtract_channel(img, ch)
 
         # Extract the relevant channel as a single-channel image for contour detection
         channel_idx = {"r": 2, "g": 1, "b": 0}[ch]
         single_channel = result[:, :, channel_idx]
-        # cv2.imshow(f'{channel_names[ch]} Channel', single_channel)
+        cv2.imshow(f'{channel_names[ch]} Channel', single_channel)
 
-        if ch=="r":
-            contours, mask = find_yellow_contours(img)
-            # cv2.imshow('Yellow Mask', mask)
-            cv2.drawContours(img, contours, -1, (255, 0, 0), 1)
-
-            if contours:
-                largest_contour = max(contours, key=cv2.contourArea)
-                M = cv2.moments(largest_contour)
-                if M['m00'] != 0:
-                    cx = int(M['m10'] / M['m00'])
-                    cy = int(M['m01'] / M['m00'])
-                    contour_pos["y"] = (cx, cy)
-                cv2.drawContours(img, [largest_contour], -1, (0, 255, 255), 2)
-                # cv2.imshow('Largest Yellow Contour', img)
-                return "y"
-        # Noise reduction: Apply Gaussian blur before thresholding
-        # single_channel_blur = cv2.GaussianBlur(single_channel, (5, 5), 0)
-
-        # cv2.imshow(f'Blurred {channel_names[ch]} Channel', single_channel_blur)
-        # cv2.waitKey(0)
-        # Thresholding
         _, single_channel_thresh = cv2.threshold(single_channel, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
         # Morphological operations
@@ -110,39 +168,47 @@ def detect_and_extract_contours(img_path):
 
         contours, _ = cv2.findContours(closed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
+        contours = merge_close_contours(contours, d_thresh=50)
+        print(f"{channel_names[ch]} channel - Contours after merging: {len(contours)}")
+        
         cv2.drawContours(result_bgr, contours, -1, (255, 0, 0), 1)  # Draw contours in blue
-        # if not contours:
-        #     raise ValueError(f"No contours found inqqqqq the {channel_names[ch]} channel.")
-
+        
         # Debug: Print contour areas
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            print(f"Contour area in {channel_names[ch]} channel: {area}")
+        # for cnt in contours:
+        #     area = cv2.contourArea(cnt)
+        #     print(f"Contour area in {channel_names[ch]} channel: {area}")
 
         # Filter contours based on area
-        contours = [cnt for cnt in contours if cv2.contourArea(cnt) > 40000]
-
+        contours = [cnt for cnt in contours if cv2.contourArea(cnt) > 4000]
+        print(f"{channel_names[ch]} channel - Contours after area filtering: {len(contours)}")
         # Filter contours based on aspect ratio
-        ratio = 1.5
+        ratio = 2
         contours = [cnt for cnt in contours if cv2.boundingRect(cnt)[2] / cv2.boundingRect(cnt)[3] < ratio]
-        # Find contour with the highest mean intensity in the relevant channel
-        brightest_contour = max(contours, key=lambda cnt: cv2.mean(single_channel_thresh, mask=cv2.drawContours(np.zeros_like(single_channel_thresh), [cnt], -1, 255, -1))[0]) if contours else None
 
-        cv2.drawContours(result_bgr, [brightest_contour], -1, (0, 255, 255), 2)  # Highlight brightest contour in yellow
-        if brightest_contour is not None:
-            print(ch)
+        cv2.drawContours(result_bgr, contours, -1, (0, 255, 255), 2)  # Highlight brightest contour in yellow
+        cv2.imshow(f'Isolated {channel_names[ch]} Channel', result_bgr)
+        
+        if len(contours) > 0 and ch=="r":
+            color = is_contour_closer_to_red_or_yellow(img, contours[0])
+            print(f"Detected color: {color}")
+            return color
+        if len(contours)>0:
             return ch
-        # if brightest_contour is not None:
-        #     M = cv2.moments(brightest_contour)
-        #     cx = int(M['m10'] / M['m00'])
-        #     cy = int(M['m01'] / M['m00'])
-
-        #     contour_pos[ch] = (cx, cy)
-
-        # cv2.imshow(f'Isolated {channel_names[ch]} Channel', result_bgr)
-    print("blue")
+        
+    print("Nothing detected, defaulting to blue")
     return "b"
 
 def image_job():
+    # rpicam-still --output ./image.png --timeout 200 --width 1920 --height 1080 --rotation 180
     subprocess.run(["rpicam-still", "--output", img_path, "--timeout", "200", "--width", "1920", "--height", "1080", "--rotation", "180"])
     return detect_and_extract_contours(img_path)
+
+
+if __name__ == '__main__':
+    for i in glob.glob("C:/Users/efeca/Desktop/imgs/*.png"):
+        print(i)
+        print(detect_and_extract_contours(i))
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        
+# print(detect_and_extract_contours("C:/Users/efeca/Desktop/imgs/i6.png"))

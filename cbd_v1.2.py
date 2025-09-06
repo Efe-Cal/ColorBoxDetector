@@ -1,4 +1,6 @@
 import argparse
+import glob
+import subprocess
 import cv2
 import numpy as np
 import os
@@ -138,6 +140,7 @@ def get_box_color(img_path:str,display:bool=False) -> str:
 
     d = detect_boxes(box_image, color_ranges, display)
     print(d)
+    return d
 
 
 def main():
@@ -149,6 +152,13 @@ def main():
     # order = get_boxes(args.image1, args.image2, args.display)
     # print('Detected color order:', order)
 
+def image_job():
+    # rpicam-still --output ./image.png --timeout 200 --width 1920 --height 1080 --rotation 180
+    img_path = "./image.png"
+    subprocess.run(["rpicam-still", "--output", img_path, "--timeout", "200", "--width", "1920", "--height", "1080", "--rotation", "180"])
+    return get_box_color(img_path, display=False)
 
 if __name__ == '__main__':
-    main()
+    for i in glob.glob("C:/Users/efeca/Desktop/np/*.png"):
+        print(i)
+        get_box_color(i)
