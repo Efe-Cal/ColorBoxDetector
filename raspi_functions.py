@@ -1,3 +1,5 @@
+# Entire project squashed into one file for easier deployment on Raspberry Pi
+
 import subprocess
 import cv2
 import numpy as np

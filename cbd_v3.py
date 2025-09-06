@@ -1,3 +1,5 @@
+# Channel isolation method with contour merging
+
 import glob
 import subprocess
 import cv2

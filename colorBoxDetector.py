@@ -1,3 +1,6 @@
+# ===============================
+#          Obsolete
+# ===============================
 import argparse
 from typing import TypedDict
 import cv2

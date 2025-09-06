@@ -1,3 +1,5 @@
+# Obsolete with the colorBoxDetector
+
 import cv2
 
 def select_vertical_point(image):

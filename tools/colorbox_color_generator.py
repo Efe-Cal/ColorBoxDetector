@@ -1,3 +1,5 @@
+# Code for generating color ranges based on user-selected regions in an image
+
 import cv2
 import numpy as np
 import os

@@ -1,3 +1,5 @@
+# Config creation tool for parallelogram detection
+ 
 import json
 import cv2
 from selectROI import select_roi_from_image

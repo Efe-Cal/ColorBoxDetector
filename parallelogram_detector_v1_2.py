@@ -1,3 +1,5 @@
+# Detection of colored corners of a parallelogram using HSV range masking
+
 import cv2
 import numpy as np
 import json

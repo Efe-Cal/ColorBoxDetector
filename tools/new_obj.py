@@ -1,3 +1,5 @@
+# Config creation tool for custom object
+
 import json
 import os
 import cv2

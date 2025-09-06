@@ -1,3 +1,5 @@
+# Tool to create configuration file for color box detection
+
 import json
 import cv2
 from selectROI import select_roi_from_image

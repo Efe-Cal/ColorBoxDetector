@@ -1,3 +1,5 @@
+# Code for selecting a ROI
+
 import cv2
 
 def select_roi_from_image(image,title="Select ROI"):

@@ -1,3 +1,5 @@
+# Channel isolation and HSV range methods with unified contour detection and selection logic
+
 import subprocess
 import cv2
 import numpy as np

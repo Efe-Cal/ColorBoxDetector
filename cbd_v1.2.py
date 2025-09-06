@@ -1,3 +1,5 @@
+# Refactored colorBoxDetector.py
+
 import argparse
 import glob
 import subprocess
