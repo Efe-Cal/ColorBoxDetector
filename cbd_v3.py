@@ -1,6 +1,5 @@
 # Channel isolation method with contour merging
 
-import glob
 import subprocess
 import cv2
 import numpy as np
@@ -200,17 +199,10 @@ def detect_and_extract_contours(img_path):
     print("Nothing detected, defaulting to blue")
     return "b"
 
-def image_job():
-    # rpicam-still --output ./image.png --timeout 200 --width 1920 --height 1080 --rotation 180
-    subprocess.run(["rpicam-still", "--output", img_path, "--timeout", "200", "--width", "1920", "--height", "1080", "--rotation", "180"])
-    return detect_and_extract_contours(img_path)
-
 
 if __name__ == '__main__':
-    for i in glob.glob("C:/Users/efeca/Desktop/imgs/*.png"):
-        print(i)
-        print(detect_and_extract_contours(i))
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    image_path = input("Enter the path to the image file: ").strip()
+    print(detect_and_extract_contours(image_path))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
         
-# print(detect_and_extract_contours("C:/Users/efeca/Desktop/imgs/i6.png"))

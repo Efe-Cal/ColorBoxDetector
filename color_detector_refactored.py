@@ -509,32 +509,18 @@ def image_job(img_path="./image.png"):
     return final_result
 
 
-
-# ===================== LEGACY FUNCTION COMPATIBILITY =====================
-
-def get_box_color(img_path):
-    """Legacy function for backward compatibility."""
-    return detect_color_v1_2(img_path)
-
-
-def detect_and_extract_contours(img_path):
-    """Legacy function for backward compatibility."""
-    return detect_color_v3(img_path)
-
-
 def main():
-    import glob
-    for img_path in glob.glob(r"C:\Users\efeca\Desktop\imgs\*.png"):
-        print(f"Processing {img_path}")
-        
-        v1_2 = detect_color_v1_2(img_path)
-        v3 = detect_color_v3(img_path)
-        
-        print(f"v1.2 detected: {v1_2}, v3 detected: {v3}")
-        
-        # Use decision logic to combine results
-        final_result = decider(v1_2, v3)
-        print(f"Final detected color: {final_result}")
+    img_path = input("Enter the path to the image file: ").strip()
+    print(f"Processing {img_path}")
+    
+    v1_2 = detect_color_v1_2(img_path)
+    v3 = detect_color_v3(img_path)
+    
+    print(f"v1.2 detected: {v1_2}, v3 detected: {v3}")
+    
+    # Use decision logic to combine results
+    final_result = decider(v1_2, v3)
+    print(f"Final detected color: {final_result}")
 
 if __name__ == '__main__':
     main()

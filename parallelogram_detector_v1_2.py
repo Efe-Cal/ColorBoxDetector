@@ -288,7 +288,6 @@ def main():
                 cv2.destroyAllWindows()
         except Exception as e:
             print(f"Error: {e}")
-        break
 
 if __name__ == '__main__':
     main()
